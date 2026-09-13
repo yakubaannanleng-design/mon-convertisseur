@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Convertisseur PDF</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, sans-serif; }
+
+        body {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .carte {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 35px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 { text-align: center; color: #333; margin-bottom: 5px; font-size: 1.6em; }
+        .sous-titre { text-align: center; color: #999; margin-bottom: 25px; font-size: 0.9em; }
+
+        .boutons {
+            display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 16px; border: 2px solid #764ba2; border-radius: 10px;
+            cursor: pointer; background: white; color: #764ba2;
+            font-size: 13px; font-weight: 600; transition: 0.2s;
+        }
+
+        button:hover { background: #f3e8ff; }
+
+        button.actif {
+            background: #764ba2; color: white;
+            box-shadow: 0 4px 15px rgba(118,75,162,0.4);
+        }
+
+        .zone-drop {
+            border: 3px dashed #764ba2; border-radius: 15px;
+            padding: 45px 20px; text-align: center; cursor: pointer;
+            transition: 0.3s; color: #764ba2;
+        }
+
+        .zone-drop.survole { background: #f3e8ff; transform: scale(1.02); }
+        .zone-drop .icone { font-size: 2.5em; margin-bottom: 10px; }
+
+        .chargement {
+            display: none; text-align: center; margin-top: 20px; color: #764ba2;
+        }
+
+        .spinner {
+            width: 40px; height: 40px; margin: 0 auto 10px;
+            border: 4px solid #f3e8ff; border-top: 4px solid #764ba2;
+            border-radius: 50%; animation: tourne 0.8s linear infinite;
+        }
+
+        @keyframes tourne { to { transform: rotate(360deg); } }
+
+        #resultat {
+            display: none; text-align: center; margin-top: 20px;
+            padding: 20px; background: #f0fdf4; border-radius: 12px;
+        }
+
+        #resultat a {
+            display: inline-block; margin-top: 10px; padding: 12px 25px;
+            background: #22c55e; color: white; text-decoration: none;
+            border-radius: 10px; font-weight: 600; transition: 0.2s;
+        }
+
+        #resultat a:hover { background: #16a34a; transform: scale(1.05); }
+
+        #erreur {
+            display: none; margin-top: 20px; padding: 15px;
+            background: #fef2f2; color: #dc2626; border-radius: 12px;
+            text-align: center; font-size: 0.9em;
+        }
+
+        footer { text-align: center; margin-top: 20px; color: #ccc; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <div class="carte">
+        <h1>🔄 Mon Convertisseur PDF</h1>
+        <p class="sous-titre">100% gratuit, 100% à toi 🔒</p>
+
+        <div class="boutons">
+            <button class="actif" data-sens="pdf-vers-word" data-ext=".pdf">PDF → Word</button>
+            <button data-sens="word-vers-pdf" data-ext=".docx,.doc,.odt,.rtf">Word → PDF</button>
+            <button data-sens="images-vers-pdf" data-ext=".jpg,.jpeg,.png,.webp,.bmp" data-multiple>Images → PDF</button>
+        </div>
+
+        <div class="zone-drop" id="zone">
+            <div class="icone" id="icone">📄</div>
+            <div id="texte-zone">Glisse ton fichier ici<br>
+                <small>ou clique pour choisir</small>
+            </div>
+        </div>
+        <input type="file" id="fichier" hidden>
+
+        <div class="chargement" id="chargement">
+            <div class="spinner"></div>
+            ⏳ Conversion en cours, patiente...
+        </div>
+
+        <div id="resultat">
+            <div>✅ Conversion réussie !</div>
+            <a id="lien-telechargement" href="#">⬇️ Télécharger</a>
+        </div>
+
+        <div id="erreur"></div>
+
+        <footer>Usage personnel — tes fichiers restent chez toi 🏠</footer>
+    </div>
+
+    <script>
+        let sens = "pdf-vers-word";
+        let extensions = ".pdf";
+        let multiple = false;
+
+        const zone = document.getElementById("zone");
+        const input = document.getElementById("fichier");
+        const icone = document.getElementById("icone");
+        const btnChargement = document.getElementById("chargement");
+        const divResultat = document.getElementById("resultat");
+        const divErreur = document.getElementById("erreur");
+        const lien = document.getElementById("lien-telechargement");
+
+        // Changer de mode
+        document.querySelectorAll("button").forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll("button").forEach(b => b.classList.remove("actif"));
+                btn.classList.add("actif");
+                sens = btn.dataset.sens;
+                extensions = btn.dataset.ext;
+                multiple = btn.hasAttribute("data-multiple");
+                input.multiple = multiple;
+                input.accept = extensions;
+                icone.textContent = multiple ? "🖼️" : (sens === "pdf-vers-word" ? "📄" : "📝");
+                cacherResultats();
+            };
+        });
+
+        // Initialiser
+        input.accept = extensions;
+
+        function cacherResultats() {
+            divResultat.style.display = "none";
+            divErreur.style.display = "none";
+        }
+
+        zone.onclick = () => input.click();
+        zone.ondragover = e => { e.preventDefault(); zone.classList.add("survole"); };
+        zone.ondragleave = () => zone.classList.remove("survole");
+        zone.ondrop = e => {
+            e.preventDefault();
+            zone.classList.remove("survole");
+            if (e.dataTransfer.files.length) convertir(e.dataTransfer.files);
+        };
+        input.onchange = () => { if (input.files.length) convertir(input.files); };
+
+        async function convertir(fichiers) {
+            cacherResultats();
+            btnChargement.style.display = "block";
+
+            const formData = new FormData();
+            if (multiple) {
+                for (const f of fichiers) formData.append("fichiers", f);
+            } else {
+                formData.append("fichier", fichiers[0]);
+            }
+
+            try {
+                const reponse = await fetch(`/api/${sens}`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                btnChargement.style.display = "none";
+
+                if (reponse.ok) {
+                    const blob = await reponse.blob();
+                    const url = URL.createObjectURL(blob);
+
+                    // Trouver le nom du fichier depuis l'en-tête
+                    const disposition = reponse.headers.get("content-disposition") || "";
+                    let nomFichier = "resultat";
+                    const match = disposition.match(/filename="?(.+?)"?$/);
+                    if (match) nomFichier = decodeURIComponent(match[1]);
+
+                    lien.href = url;
+                    lien.download = nomFichier;
+                    divResultat.style.display = "block";
+                } else {
+                    const err = await reponse.json().catch(() => ({}));
+                    divErreur.textContent = "❌ " + (err.detail || "Erreur lors de la conversion");
+                    divErreur.style.display = "block";
+                }
+            } catch (e) {
+                btnChargement.style.display = "none";
+                divErreur.textContent = "❌ Impossible de contacter le serveur. Es-tu sûr qu'il est lancé ?";
+                divErreur.style.display = "block";
+            }
+        }
+    </script>
+</body>
+</html>
